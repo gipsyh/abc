@@ -108,3 +108,11 @@ add_library(libabc-pic EXCLUDE_FROM_ALL ${ABC_SRC})
 abc_properties(libabc-pic PUBLIC)
 set_property(TARGET libabc-pic PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET libabc-pic PROPERTY OUTPUT_NAME abc-pic)
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../pic3/pic3/pic3cpp" pic3cpp)
+target_link_libraries(libabc PUBLIC pic3cpp)
+
+install(TARGETS libabc
+        LIBRARY DESTINATION lib
+        PUBLIC_HEADER DESTINATION include
+        )

@@ -206,6 +206,7 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
             }
             // add the last clause
             Vec_PtrPush( vArrayK1, pCubeK );
+            pic3_share_lemma(p, k + 1, pCubeK);
             Vec_PtrWriteEntry( vArrayK, j, Vec_PtrEntryLast(vArrayK) );
             Vec_PtrPop(vArrayK);
             j--;
@@ -429,6 +430,7 @@ int ZPdr_ManDown( Pdr_Man_t * p, int k, Pdr_Set_t ** ppCube, Pdr_Set_t * pPred, 
             }
 
             Vec_VecPush( p->vClauses, l, pCubeMin );   // consume ref
+            pic3_share_lemma(p, l, pCubeMin);
             p->nCubes++;
             // add clause
             for ( i = 1; i <= l; i++ )
@@ -987,6 +989,7 @@ int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube )
                 Vec_IntAddToEntry( p->vPrio, pCubeMin->Lits[i] / 2, 1 << p->nPrioShift );
             }
             Vec_VecPush( p->vClauses, k, pCubeMin );   // consume ref
+            pic3_share_lemma(p, k, pCubeMin);
             p->nCubes++;
             // add clause
             for ( i = 1; i <= k; i++ )

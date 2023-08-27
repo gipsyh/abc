@@ -255,7 +255,8 @@ sat_solver * IPdr_ManSetSolver( Pdr_Man_t * p, int k, int fSetPropOutput )
 ***********************************************************************/
 int IPdr_ManRebuildClauses( Pdr_Man_t * p, Vec_Vec_t * vClauses )
 {
-    Vec_Ptr_t * vArrayK;
+    abort();
+    Vec_Ptr_t *vArrayK;
     Pdr_Set_t * pCube;
     int i, j;
     int RetValue = -1;

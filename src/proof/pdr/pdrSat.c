@@ -289,6 +289,7 @@ int Pdr_ManCheckCubeCs( Pdr_Man_t * p, int k, Pdr_Set_t * pCube )
 ***********************************************************************/
 int Pdr_ManCheckCube( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, int nConfLimit, int fTryConf, int fUseLit )
 { 
+    pic3_acquire_lemma(p);
     //int fUseLit = 0;
     int fLitUsed = 0;
     sat_solver * pSat;

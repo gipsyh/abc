@@ -7,4 +7,5 @@ SRC +=    src/proof/pdr/pdrCnf.c \
     src/proof/pdr/pdrTsim.c \
     src/proof/pdr/pdrTsim2.c \
     src/proof/pdr/pdrTsim3.c \
-    src/proof/pdr/pdrUtil.c
+    src/proof/pdr/pdrUtil.c \
+    src/proof/pdr/pic3.c

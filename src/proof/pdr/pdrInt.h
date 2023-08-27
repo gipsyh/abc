@@ -31,6 +31,7 @@
 #include "pdr.h" 
 #include "misc/hash/hashInt.h"
 #include "aig/gia/giaAig.h"
+#include "pic3.h"
 
 //#define PDR_USE_SATOKO 1
 
@@ -90,6 +91,10 @@ struct Pdr_Obl_t_
     Pdr_Set_t * pState;    // state cube
     Pdr_Obl_t * pNext;     // next one
     Pdr_Obl_t * pLink;     // queue link
+};
+
+struct Pic3_t {
+    struct LemmaSharer sharer;
 };
 
 typedef struct Pdr_Man_t_ Pdr_Man_t;
@@ -172,6 +177,8 @@ struct Pdr_Man_t_
     abctime     tCnf;
     abctime     tAbs;
     abctime     tTotal;
+
+    struct Pic3_t   pic3;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -264,6 +271,8 @@ extern void            Pdr_QueuePush( Pdr_Man_t * p, Pdr_Obl_t * pObl );
 extern void            Pdr_QueuePrint( Pdr_Man_t * p );
 extern void            Pdr_QueueStop( Pdr_Man_t * p );
 
+extern void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube);
+extern void pic3_acquire_lemma(Pdr_Man_t *p);
 ABC_NAMESPACE_HEADER_END
 
 
