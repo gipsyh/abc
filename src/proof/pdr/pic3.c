@@ -3,10 +3,12 @@
 #include "pdr.h"
 #include "aig/ioa/ioa.h"
 
-static void *pic3abc_new()
+static void *pic3abc_create()
 {
 	Aig_Man_t *aig = Ioa_ReadAiger(
-		"/root/MC-Benchmark/hwmcc20/aig/2019/goel/industry/cal118/cal118.aig",
+		// "/root/MC-Benchmark/hwmcc20/aig/2019/goel/industry/cal118/cal118.aig",
+		// "/root/MC-Benchmark/hwmcc20/aig/2019/goel/industry/cal102/cal102.aig",
+		"/root/MC-Benchmark/hwmcc20/aig/2019/beem/pgm_protocol.7.prop1-back-serstep.aig",
 		1);
 	Pdr_Par_t *pars = ABC_CALLOC(Pdr_Par_t, 1);
 	Pdr_ManSetDefaultParams(pars);
@@ -26,7 +28,18 @@ static void pic3abc_diversify(void *this, int rank, int size)
 {
 	Pdr_Man_t *p = this;
 	printf("%d %d\n", rank, size);
-	p->pPars->nRandomSeed = rand();
+	if (rank == 0) {
+		p->pPars->fVerbose = 1;
+	}
+	if (rank == 1) {
+		p->pPars->fTwoRounds = 1;
+	}
+	if (rank == 2) {
+		p->pPars->fNewXSim = 1;
+	}
+	if (rank > 2) {
+		p->pPars->nRandomSeed = rand();
+	}
 	printf("%d\n", p->pPars->nRandomSeed);
 }
 
@@ -39,24 +52,8 @@ static int pic3abc_solve(void *this)
 	return RetValue;
 }
 
-// int Pdr_ManSolve( Aig_Man_t * pAig, Pdr_Par_t * pPars )
-// {
-//     Pdr_Man_t * p;
-//     int k, RetValue;
-//     abctime clk = Abc_Clock();
-//     ABC_FREE( pAig->pSeqModel );
-//     p = Pdr_ManStart( pAig, pPars, NULL );
-//     RetValue = Pdr_ManSolveInt( p );
-//     if ( RetValue == 1 )
-//         Abc_FrameSetInv( Pdr_ManDeriveInfinityClauses( p, RetValue!=1 ) );
-//     p->tTotal += Abc_Clock() - clk;
-//     Pdr_ManStop( p );
-//     pPars->iFrame--;
-//     return RetValue;
-// }
-
 struct Pic3Interface pic3abc = {
-	.new = pic3abc_new,
+	.create = pic3abc_create,
 	.set_lemma_sharer = pic3abc_set_lemma_sharer,
 	.diversify = pic3abc_diversify,
 	.solve = pic3abc_solve,
