@@ -5,17 +5,18 @@
 
 static void *pic3abc_create()
 {
-	Aig_Man_t *aig = Ioa_ReadAiger(
-		// "/root/MC-Benchmark/hwmcc20/aig/2019/goel/industry/cal118/cal118.aig",
-		// "/root/MC-Benchmark/hwmcc20/aig/2019/goel/industry/cal102/cal102.aig",
-		"/root/MC-Benchmark/hwmcc20/aig/2019/beem/pgm_protocol.7.prop1-back-serstep.aig",
-		1);
 	Pdr_Par_t *pars = ABC_CALLOC(Pdr_Par_t, 1);
 	Pdr_ManSetDefaultParams(pars);
 	Pdr_Man_t *pdr = ABC_CALLOC(Pdr_Man_t, 1);
-	pdr->pAig = aig;
 	pdr->pPars = pars;
 	return pdr;
+}
+
+static void pic3abc_set_model(void *this, char *model)
+{
+	Pdr_Man_t *p = this;
+	Aig_Man_t *aig = Ioa_ReadAiger(model, 1);
+	p->pAig = aig;
 }
 
 static void pic3abc_set_lemma_sharer(void *this, struct LemmaSharer sharer)
@@ -54,6 +55,7 @@ static int pic3abc_solve(void *this)
 
 struct Pic3Interface pic3abc = {
 	.create = pic3abc_create,
+	.set_model = pic3abc_set_model,
 	.set_lemma_sharer = pic3abc_set_lemma_sharer,
 	.diversify = pic3abc_diversify,
 	.solve = pic3abc_solve,
