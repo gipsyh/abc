@@ -35,10 +35,7 @@ static void pic3abc_diversify(void *this, int rank, int size)
 	if (rank == 1) {
 		p->pPars->fTwoRounds = 1;
 	}
-	if (rank == 2) {
-		p->pPars->fNewXSim = 1;
-	}
-	if (rank > 2) {
+	if (rank > 1) {
 		p->pPars->nRandomSeed = rand();
 	}
 	printf("%d\n", p->pPars->nRandomSeed);
@@ -125,9 +122,10 @@ void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube)
 {
 	Aig_Obj_t *pObj;
 	int *lits = ABC_CALLOC(int, cube->nLits);
+	int offset = (p->pAig->nTruePis + 1) * 2;
 	for (int i = 0; i < cube->nLits; i++) {
 		assert(cube->Lits[i] != -1);
-		lits[i] = cube->Lits[i];
+		lits[i] = cube->Lits[i] + offset;
 	}
 	struct Lemma lemma = {
 		.frame_idx = k,
@@ -139,11 +137,15 @@ void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube)
 
 void pic3_acquire_lemma(Pdr_Man_t *p)
 {
+	int offset = (p->pAig->nTruePis + 1) * 2;
 	while (1) {
 		struct Lemma lemma =
 			p->pic3.sharer.acquire(p->pic3.sharer.data);
 		if (lemma.lits == NULL) {
 			break;
+		}
+		for (int i = 0; i < lemma.num_lit; i++) {
+			lemma.lits[i] -= offset;
 		}
 		Vec_Int_t lits = { .nCap = lemma.num_lit,
 				   .nSize = lemma.num_lit,
