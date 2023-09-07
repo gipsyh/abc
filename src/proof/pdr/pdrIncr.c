@@ -28,7 +28,7 @@ ABC_NAMESPACE_IMPL_START
 ////////////////////////////////////////////////////////////////////////
 
 extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
-extern int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube );
+extern int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx );
 extern int Pdr_ManPushClauses( Pdr_Man_t * p );
 extern Pdr_Set_t * Pdr_ManReduceClause( Pdr_Man_t * p, int k, Pdr_Set_t * pCube );
 extern int Gia_ManToBridgeAbort( FILE * pFile, int Size, unsigned char * pBuffer );
@@ -552,7 +552,7 @@ int IPdr_ManSolveInt( Pdr_Man_t * p, int fCheckClauses, int fPushClauses )
                 }
                 if ( RetValue == 0 )
                 {
-                    RetValue = Pdr_ManBlockCube( p, pCube );
+                    RetValue = Pdr_ManBlockCube( p, pCube, Vec_PtrSize(p->vSolvers)-1 );
                     if ( RetValue == -1 )
                     {
                         if ( p->pPars->fVerbose )

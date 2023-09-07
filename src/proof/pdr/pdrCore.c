@@ -175,11 +175,26 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
             }
 
             // check if the clause can be moved to the next frame
-            RetValue2 = Pdr_ManCheckCube( p, k, pCubeK, NULL, 0, 0, 1 );
-            if ( RetValue2 == -1 )
+            Pdr_Set_t *pPred = NULL;
+            RetValue2 = Pdr_ManCheckCube(p, k, pCubeK, &pPred, 0, 0, 1);
+            if (RetValue2 == -1)
                 return -1;
-            if ( !RetValue2 )
-                continue;
+            if (!RetValue2) {
+                int ctp = 0;
+                int success = false;
+                while (ctp <= 10) {
+                    if (Pdr_ManCheckCube(p, k, pCubeK, &pPred, 0, 0, 1)) {
+                        success = true;
+                        break;
+                    } else {
+                        ctp += 1;
+                        if (!Pdr_ManBlockCube(p, pPred, k))
+                            break;
+                    }
+                }
+                if (!success)
+                    continue;
+		    }
 
             {
                 Pdr_Set_t * pCubeMin;
@@ -891,7 +906,7 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
   SeeAlso     []
 
 ***********************************************************************/
-int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube )
+int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx )
 {
     Pdr_Obl_t * pThis;
     Pdr_Set_t * pPred, * pCubeMin;
@@ -901,7 +916,7 @@ int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube )
     p->nBlocks++;
     // create first proof obligation
 //    assert( p->pQueue == NULL );
-    pThis = Pdr_OblStart( kMax, Prio--, pCube, NULL ); // consume ref
+    pThis = Pdr_OblStart( frame_idx, Prio--, pCube, NULL ); // consume ref
     Pdr_QueuePush( p, pThis );
     // try to solve it recursively
     while ( !Pdr_QueueIsEmpty(p) )
@@ -1168,7 +1183,7 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
                 }
                 if ( RetValue == 0 )
                 {
-                    RetValue = Pdr_ManBlockCube( p, pCube );
+                    RetValue = Pdr_ManBlockCube( p, pCube, Vec_PtrSize(p->vSolvers)-1 );
                     if ( RetValue == -1 )
                     {
                         if ( p->pPars->fVerbose )
