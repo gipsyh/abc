@@ -32,10 +32,19 @@ static void pic3abc_diversify(void *this, int rank, int size)
 	if (rank == 0) {
 		p->pPars->fVerbose = 1;
 	}
-	if (rank == 1) {
-		p->pPars->fTwoRounds = 1;
+	if (rank == 0) {
+		p->pPars->nRandomSeed = 91648253;
 	}
-	if (rank > 1) {
+	if (rank == 1) {
+		p->pPars->nRandomSeed = 156587972;
+	}
+	if (rank == 2) {
+		p->pPars->nRandomSeed = 945582623;
+	}
+	if (rank == 3) {
+		p->pPars->nRandomSeed = 1531455287;
+	}
+	if (rank >= 4) {
 		p->pPars->nRandomSeed = rand();
 	}
 	printf("%d\n", p->pPars->nRandomSeed);
@@ -62,18 +71,14 @@ void pic3abc_start(Pdr_Man_t *p, Vec_Int_t *vPrioInit)
 {
 	Pdr_Par_t *pPars = p->pPars;
 	Aig_Man_t *pAig = p->pAig;
-	p->pGia =
-		(pPars->fFlopPrio || p->pPars->fNewXSim || p->pPars->fUseAbs) ?
-			Gia_ManFromAigSimple(pAig) :
-			NULL;
+	p->pGia = (pPars->fFlopPrio || p->pPars->fNewXSim || p->pPars->fUseAbs) ? Gia_ManFromAigSimple(pAig) : NULL;
 	p->vSolvers = Vec_PtrAlloc(0);
 	p->vClauses = Vec_VecAlloc(0);
 	p->pQueue = NULL;
 	p->pOrder = ABC_ALLOC(int, Aig_ManRegNum(pAig));
 	p->vActVars = Vec_IntAlloc(256);
 	if (!p->pPars->fMonoCnf)
-		p->vVLits =
-			Vec_WecStart(1 + Abc_MaxInt(1, Aig_ManLevels(pAig)));
+		p->vVLits = Vec_WecStart(1 + Abc_MaxInt(1, Aig_ManLevels(pAig)));
 	// internal use
 	p->nPrioShift = Abc_Base2Log(Aig_ManRegNum(pAig));
 	if (vPrioInit)
@@ -101,15 +106,13 @@ void pic3abc_start(Pdr_Man_t *p, Vec_Int_t *vPrioInit)
 	if (pAig->pFanData == NULL)
 		Aig_ManFanoutStart(pAig);
 	if (pAig->pTerSimData == NULL)
-		pAig->pTerSimData =
-			ABC_CALLOC(unsigned, 1 + (Aig_ManObjNumMax(pAig) / 16));
+		pAig->pTerSimData = ABC_CALLOC(unsigned, 1 + (Aig_ManObjNumMax(pAig) / 16));
 	// time spent on each outputs
 	if (pPars->nTimeOutOne) {
 		int i;
 		p->pTime4Outs = ABC_ALLOC(abctime, Saig_ManPoNum(pAig));
 		for (i = 0; i < Saig_ManPoNum(pAig); i++)
-			p->pTime4Outs[i] =
-				pPars->nTimeOutOne * CLOCKS_PER_SEC / 1000 + 1;
+			p->pTime4Outs[i] = pPars->nTimeOutOne * CLOCKS_PER_SEC / 1000 + 1;
 	}
 	if (p->pPars->fSolveAll) {
 		p->vCexes = Vec_PtrStart(Saig_ManPoNum(p->pAig));
@@ -139,17 +142,14 @@ void pic3_acquire_lemma(Pdr_Man_t *p)
 {
 	int offset = (p->pAig->nTruePis + 1) * 2;
 	while (1) {
-		struct Lemma lemma =
-			p->pic3.sharer.acquire(p->pic3.sharer.data);
+		struct Lemma lemma = p->pic3.sharer.acquire(p->pic3.sharer.data, Vec_PtrSize(p->vClauses) - 1);
 		if (lemma.lits == NULL) {
 			break;
 		}
 		for (int i = 0; i < lemma.num_lit; i++) {
 			lemma.lits[i] -= offset;
 		}
-		Vec_Int_t lits = { .nCap = lemma.num_lit,
-				   .nSize = lemma.num_lit,
-				   .pArray = lemma.lits };
+		Vec_Int_t lits = { .nCap = lemma.num_lit, .nSize = lemma.num_lit, .pArray = lemma.lits };
 		Vec_Int_t *pilits = Vec_IntAlloc(0);
 		Pdr_Set_t *cube = Pdr_SetCreate(&lits, pilits);
 		ABC_FREE(lits.pArray);
@@ -162,6 +162,8 @@ void pic3_acquire_lemma(Pdr_Man_t *p)
 				Vec_VecPush(p->vClauses, lemma.frame_idx, cube);
 				for (int i = 1; i <= lemma.frame_idx; i++)
 					Pdr_ManSolverAddClause(p, i, cube);
+			} else {
+				abort();
 			}
 		}
 	}

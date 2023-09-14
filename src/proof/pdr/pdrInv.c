@@ -532,8 +532,10 @@ void Pdr_ManVerifyInvariant( Pdr_Man_t * p )
             Counter++;
         }
     }
-    if ( Counter )
+    if ( Counter ) {
         Abc_Print( 1, "Verification of %d clauses has failed.\n", Counter );
+        abort();
+    }
     else
     {
         Abc_Print( 1, "Verification of invariant with %d clauses was successful.  ", Vec_PtrSize(vCubes) );
