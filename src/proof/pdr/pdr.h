@@ -68,6 +68,7 @@ struct Pdr_Par_t_
     int fUseSimpleRef;    // simplified CEX refinement
     int fVerbose;         // verbose output`
     int fVeryVerbose;     // very verbose output
+    int fCtp;             // use ctp
     int fNotVerbose;      // not printing line by line progress
     int fSilent;          // totally silent execution
     int fSolveAll;        // do not stop when found a SAT output

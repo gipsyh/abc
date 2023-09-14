@@ -173,6 +173,7 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
                 Vec_PtrPop(vArrayK);
                 m--;
             }
+            
 
             // check if the clause can be moved to the next frame
             Pdr_Set_t *pPred = NULL;
@@ -180,6 +181,8 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
             if (RetValue2 == -1)
                 return -1;
             if (!RetValue2) {
+                if (!p->pPars->fCtp)
+                    continue;
                 int ctp = 0;
                 int success = false;
                 while (ctp <= 10) {
@@ -188,13 +191,15 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
                         break;
                     } else {
                         ctp += 1;
-                        if (!Pdr_ManBlockCube(p, pPred, k))
+                        extern int Pdr_ManBlockCube(Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx, int simple);
+                        if (!Pdr_ManBlockCube(p, pPred, k, 1))
                             break;
                     }
                 }
+                // printf("ctp success: %d, ctp %d\n", success, ctp);
                 if (!success)
                     continue;
-		    }
+            }
 
             {
                 Pdr_Set_t * pCubeMin;
@@ -227,7 +232,7 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
         }
         if ( Vec_PtrSize(vArrayK) == 0 )
             RetValue = 1;
-    }
+        }
 
     // clean up the last one
     vArrayK = Vec_VecEntry( p->vClauses, kMax );
@@ -906,7 +911,7 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
   SeeAlso     []
 
 ***********************************************************************/
-int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx )
+int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx, int simple)
 {
     Pdr_Obl_t * pThis;
     Pdr_Set_t * pPred, * pCubeMin;
@@ -923,8 +928,11 @@ int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx )
     {
         Counter++;
         pThis = Pdr_QueueHead( p );
-        if ( pThis->iFrame == 0 || (p->pPars->fUseAbs && Pdr_SetIsInit(pThis->pState, -1)) )
+        if ( pThis->iFrame == 0 || (p->pPars->fUseAbs && Pdr_SetIsInit(pThis->pState, -1)) || (simple && pThis->iFrame + 2 < frame_idx)) {
+            if (simple)
+                Pdr_QueueStop( p );
             return 0; // SAT
+        }
         if ( pThis->iFrame > kMax ) // finished this level
             return 1;
         if ( p->nQueLim && p->nQueCur >= p->nQueLim )
@@ -1007,7 +1015,7 @@ int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube, int frame_idx )
             for ( i = 1; i <= k; i++ )
                 Pdr_ManSolverAddClause( p, i, pCubeMin );
             // schedule proof obligation
-            if ( (k < kMax || p->pPars->fReuseProofOblig) && !p->pPars->fShortest )
+            if ( (k < kMax || p->pPars->fReuseProofOblig) && !p->pPars->fShortest && !simple )
             {
                 pThis->iFrame = k+1;
                 pThis->prio   = Prio--;
@@ -1183,7 +1191,7 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
                 }
                 if ( RetValue == 0 )
                 {
-                    RetValue = Pdr_ManBlockCube( p, pCube, Vec_PtrSize(p->vSolvers)-1 );
+                    RetValue = Pdr_ManBlockCube( p, pCube, Vec_PtrSize(p->vSolvers)-1, 0 );
                     if ( RetValue == -1 )
                     {
                         if ( p->pPars->fVerbose )
@@ -1207,6 +1215,7 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
                     }
                     if ( RetValue == 0 )
                     {
+                        printf("fail\n");
                         if ( fPrintClauses )
                         {
                             Abc_Print( 1, "*** Clauses after frame %d:\n", iFrame );
