@@ -7,6 +7,7 @@ static void *pic3abc_create()
 {
 	Pdr_Par_t *pars = ABC_CALLOC(Pdr_Par_t, 1);
 	Pdr_ManSetDefaultParams(pars);
+	pars->nRandomSeed = rand();
 	Pdr_Man_t *pdr = ABC_CALLOC(Pdr_Man_t, 1);
 	pdr->pPars = pars;
 	return pdr;
@@ -25,35 +26,25 @@ static void pic3abc_set_lemma_sharer(void *this, struct LemmaSharer sharer)
 	p->pic3.sharer = sharer;
 }
 
+static void pic3abc_set_random_seed(void *this, int random)
+{
+	Pdr_Man_t *p = this;
+	p->pPars->nRandomSeed = random;
+}
+
 static void pic3abc_diversify(void *this, int rank, int size)
 {
 	Pdr_Man_t *p = this;
-	printf("%d %d\n", rank, size);
 	if (rank == 0) {
 		p->pPars->fVerbose = 1;
 	}
-	if (rank == 0) {
-		p->pPars->nRandomSeed = 91648253;
-	}
-	if (rank == 1) {
-		p->pPars->nRandomSeed = 156587972;
-	}
-	if (rank == 2) {
-		p->pPars->nRandomSeed = 945582623;
-	}
-	if (rank == 3) {
-		p->pPars->nRandomSeed = 1531455287;
-	}
-	if (rank >= 4) {
-		p->pPars->nRandomSeed = rand();
-	}
-	printf("%d\n", p->pPars->nRandomSeed);
 }
 
 static int pic3abc_solve(void *this)
 {
 	extern int Pdr_ManSolveInt(Pdr_Man_t * p);
 	Pdr_Man_t *p = this;
+	printf("%d\n", p->pPars->nRandomSeed);
 	pic3abc_start(p, NULL);
 	int RetValue = Pdr_ManSolveInt(p);
 	return RetValue;
@@ -63,6 +54,7 @@ struct Pic3Interface pic3abc = {
 	.create = pic3abc_create,
 	.set_model = pic3abc_set_model,
 	.set_lemma_sharer = pic3abc_set_lemma_sharer,
+	.set_random_seed = pic3abc_set_random_seed,
 	.diversify = pic3abc_diversify,
 	.solve = pic3abc_solve,
 };
