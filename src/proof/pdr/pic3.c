@@ -10,6 +10,7 @@ static void *pic3abc_create()
 	pars->nRandomSeed = rand();
 	Pdr_Man_t *pdr = ABC_CALLOC(Pdr_Man_t, 1);
 	pdr->pPars = pars;
+	pdr->pic3.synchronizer.data = NULL;
 	return pdr;
 }
 
@@ -115,6 +116,9 @@ void pic3abc_start(Pdr_Man_t *p, Vec_Int_t *vPrioInit)
 
 void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube)
 {
+	if (p->pic3.synchronizer.data == NULL) {
+		return;
+	}
 	Aig_Obj_t *pObj;
 	int *lits = ABC_CALLOC(int, cube->nLits);
 	int offset = (p->pAig->nTruePis + 1) * 2;
@@ -132,6 +136,9 @@ void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube)
 
 void pic3_handle_message(Pdr_Man_t *p)
 {
+	if (p->pic3.synchronizer.data == NULL) {
+		return;
+	}
 	int offset = (p->pAig->nTruePis + 1) * 2;
 	while (true) {
 		struct Message *message = p->pic3.synchronizer.receive_message(p->pic3.synchronizer.data);
