@@ -94,7 +94,7 @@ struct Pdr_Obl_t_
 };
 
 struct Pic3_t {
-    struct LemmaSharer sharer;
+    struct Synchronizer synchronizer;
 };
 
 typedef struct Pdr_Man_t_ Pdr_Man_t;
@@ -272,7 +272,7 @@ extern void            Pdr_QueuePrint( Pdr_Man_t * p );
 extern void            Pdr_QueueStop( Pdr_Man_t * p );
 
 extern void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube);
-extern void pic3_acquire_lemma(Pdr_Man_t *p);
+extern void pic3_handle_message(Pdr_Man_t *p);
 ABC_NAMESPACE_HEADER_END
 
 

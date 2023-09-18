@@ -20,10 +20,10 @@ static void pic3abc_set_model(void *this, char *model)
 	p->pAig = aig;
 }
 
-static void pic3abc_set_lemma_sharer(void *this, struct LemmaSharer sharer)
+static void pic3abc_set_synchronizer(void *this, struct Synchronizer synchronizer)
 {
 	Pdr_Man_t *p = this;
-	p->pic3.sharer = sharer;
+	p->pic3.synchronizer = synchronizer;
 }
 
 static void pic3abc_set_random_seed(void *this, int random)
@@ -53,7 +53,7 @@ static int pic3abc_solve(void *this)
 struct Pic3Interface pic3abc = {
 	.create = pic3abc_create,
 	.set_model = pic3abc_set_model,
-	.set_lemma_sharer = pic3abc_set_lemma_sharer,
+	.set_synchronizer = pic3abc_set_synchronizer,
 	.set_random_seed = pic3abc_set_random_seed,
 	.diversify = pic3abc_diversify,
 	.solve = pic3abc_solve,
@@ -127,36 +127,41 @@ void pic3_share_lemma(Pdr_Man_t *p, int k, Pdr_Set_t *cube)
 		.lits = lits,
 		.num_lit = cube->nLits,
 	};
-	p->pic3.sharer.share(p->pic3.sharer.data, lemma);
+	p->pic3.synchronizer.share_lemma(p->pic3.synchronizer.data, lemma);
 }
 
-void pic3_acquire_lemma(Pdr_Man_t *p)
+void pic3_handle_message(Pdr_Man_t *p)
 {
 	int offset = (p->pAig->nTruePis + 1) * 2;
-	while (1) {
-		struct Lemma lemma = p->pic3.sharer.acquire(p->pic3.sharer.data, Vec_PtrSize(p->vClauses) - 1);
-		if (lemma.lits == NULL) {
+	while (true) {
+		struct Message *message = p->pic3.synchronizer.receive_message(p->pic3.synchronizer.data);
+		if (message == NULL) {
 			break;
 		}
-		for (int i = 0; i < lemma.num_lit; i++) {
-			lemma.lits[i] -= offset;
-		}
-		Vec_Int_t lits = { .nCap = lemma.num_lit, .nSize = lemma.num_lit, .pArray = lemma.lits };
-		Vec_Int_t *pilits = Vec_IntAlloc(0);
-		Pdr_Set_t *cube = Pdr_SetCreate(&lits, pilits);
-		ABC_FREE(lits.pArray);
-		Vec_IntFree(pilits);
-		if (Pdr_ManCheckContainment(p, lemma.frame_idx, cube)) {
-			Pdr_SetDeref(cube);
-			continue;
-		} else {
-			if (Vec_PtrSize(p->vClauses) > lemma.frame_idx) {
-				Vec_VecPush(p->vClauses, lemma.frame_idx, cube);
-				for (int i = 1; i <= lemma.frame_idx; i++)
-					Pdr_ManSolverAddClause(p, i, cube);
-			} else {
-				abort();
+		if (message->type == Lemma) {
+			struct Lemma lemma = message->lemma;
+			for (int i = 0; i < lemma.num_lit; i++) {
+				lemma.lits[i] -= offset;
 			}
+			Vec_Int_t lits = { .nCap = lemma.num_lit, .nSize = lemma.num_lit, .pArray = lemma.lits };
+			Vec_Int_t *pilits = Vec_IntAlloc(0);
+			Pdr_Set_t *cube = Pdr_SetCreate(&lits, pilits);
+			ABC_FREE(lits.pArray);
+			Vec_IntFree(pilits);
+			if (Pdr_ManCheckContainment(p, lemma.frame_idx, cube)) {
+				Pdr_SetDeref(cube);
+				continue;
+			} else {
+				if (Vec_PtrSize(p->vClauses) > lemma.frame_idx) {
+					Vec_VecPush(p->vClauses, lemma.frame_idx, cube);
+					for (int i = 1; i <= lemma.frame_idx; i++)
+						Pdr_ManSolverAddClause(p, i, cube);
+				} else {
+					abort();
+				}
+			}
+		} else if (message->type == FrameBlocked) {
+			abort();
 		}
 	}
 }
