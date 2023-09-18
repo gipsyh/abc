@@ -161,7 +161,6 @@ void pic3_handle_message(Pdr_Man_t *p)
 				}
 			}
 		} else if (message->type == FrameBlocked) {
-			abort();
 		}
 	}
 }
