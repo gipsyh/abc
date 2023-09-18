@@ -1289,6 +1289,7 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
             Abc_Print( 1, "*** Clauses after frame %d:\n", iFrame );
             Pdr_ManPrintClauses( p, 0 );
         }
+        p->pic3.synchronizer.sync(p->pic3.synchronizer.data);
         // push clauses into this timeframe
         RetValue = Pdr_ManPushClauses( p );
         if ( RetValue == -1 )
