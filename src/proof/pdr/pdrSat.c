@@ -385,6 +385,105 @@ int Pdr_ManCheckCube( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPr
     return RetValue;
 }
 
+int Pdr_ManCheckCubeWithConstraint( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, int nConfLimit, int fTryConf, int fUseLit, Pdr_Set_t * Constraint )
+{ 
+    //int fUseLit = 0;
+    int fLitUsed = 0;
+    sat_solver * pSat;
+    Vec_Int_t * vLits;
+    int Lit, RetValue;
+    abctime clk, Limit;
+    p->nCalls++;
+    pSat = Pdr_ManFetchSolver( p, k );
+    Pdr_ManSolverAddClause(p, k, Constraint);
+    if ( pCube == NULL ) // solve the property
+    {
+        clk = Abc_Clock();
+        Lit = Abc_Var2Lit( Pdr_ObjSatVar(p, k, 2, Aig_ManCo(p->pAig, p->iOutCur)), 0 ); // pos literal (property fails)
+        Limit = sat_solver_set_runtime_limit( pSat, Pdr_ManTimeLimit(p) );
+        RetValue = sat_solver_solve( pSat, &Lit, &Lit + 1, nConfLimit, 0, 0, 0 );
+        sat_solver_set_runtime_limit( pSat, Limit );
+        if ( RetValue == l_Undef )
+            return -1;
+    }
+    else // check relative containment in terms of next states
+    {
+        if ( fUseLit )
+        {
+            fLitUsed = 1;
+            Vec_IntAddToEntry( p->vActVars, k, 1 );
+            // add the cube in terms of current state variables
+            vLits = Pdr_ManCubeToLits( p, k, pCube, 1, 0 );
+            // add activation literal
+            Lit = Abc_Var2Lit( Pdr_ManFreeVar(p, k), 0 );
+            // add activation literal
+            Vec_IntPush( vLits, Lit );
+            RetValue = sat_solver_addclause( pSat, Vec_IntArray(vLits), Vec_IntArray(vLits) + Vec_IntSize(vLits) );
+            assert( RetValue == 1 );
+            sat_solver_compress( pSat );
+            // create assumptions
+            vLits = Pdr_ManCubeToLits( p, k, pCube, 0, 1 );
+            // add activation literal
+            Vec_IntPush( vLits, Abc_LitNot(Lit) );
+        }
+        else
+            vLits = Pdr_ManCubeToLits( p, k, pCube, 0, 1 );
+
+        // solve 
+        clk = Abc_Clock();
+        Limit = sat_solver_set_runtime_limit( pSat, Pdr_ManTimeLimit(p) );
+        RetValue = sat_solver_solve( pSat, Vec_IntArray(vLits), Vec_IntArray(vLits) + Vec_IntSize(vLits), fTryConf ? p->pPars->nConfGenLimit : nConfLimit, 0, 0, 0 );
+        sat_solver_set_runtime_limit( pSat, Limit );
+        if ( RetValue == l_Undef )
+        {
+            if ( fTryConf && p->pPars->nConfGenLimit )
+                RetValue = l_True;
+            else
+                return -1;
+        }
+    }
+    clk = Abc_Clock() - clk;
+    p->tSat += clk;
+    assert( RetValue != l_Undef );
+    if ( RetValue == l_False )
+    {
+        p->tSatUnsat += clk;
+        p->nCallsU++;
+        if ( ppPred )
+            *ppPred = NULL;
+        RetValue = 1;
+    }
+    else // if ( RetValue == l_True )
+    {
+        p->tSatSat += clk;
+        p->nCallsS++;
+        if ( ppPred )
+        {
+            abctime clk = Abc_Clock();
+            if ( p->pPars->fNewXSim )
+                *ppPred = Txs3_ManTernarySim( p->pTxs3, k, pCube );
+            else
+                *ppPred = Pdr_ManTernarySim( p, k, pCube );
+            p->tTsim += Abc_Clock() - clk;
+            p->nXsimLits += (*ppPred)->nLits;
+            p->nXsimRuns++;
+        }
+        RetValue = 0;
+    }
+
+/* // for some reason, it does not work...
+    if ( fLitUsed )
+    {
+        int RetValue;
+        Lit = Abc_LitNot(Lit);
+        RetValue = sat_solver_addclause( pSat, &Lit, &Lit + 1 );
+        assert( RetValue == 1 );
+        sat_solver_compress( pSat );
+    }
+*/
+    return RetValue;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

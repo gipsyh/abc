@@ -678,7 +678,8 @@ int Pdr_ManGeneralize2( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** pp
   SeeAlso     []
 
 ***********************************************************************/
-int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, Pdr_Set_t ** ppCubeMin )
+int a, b, c;
+int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, Pdr_Set_t ** ppCubeMin, Pdr_Obl_t * succ )
 {
     Pdr_Set_t * pCubeMin, * pCubeTmp = NULL, * pPred = NULL, * pCubeCpy = NULL;
     int i, j, Lit, RetValue;
@@ -730,7 +731,8 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
         return 1;
     }
     
-    keep = p->pPars->fSkipDown ? NULL : Hash_IntAlloc( 1 );
+    // keep = p->pPars->fSkipDown ? NULL : Hash_IntAlloc( 1 );
+    keep = Hash_IntAlloc( 1 );
 
     // perform generalization
     if ( !p->pPars->fSkipGeneral )
@@ -743,6 +745,42 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
             int RetValue1 = sat_solver_addclause( pSat, Vec_IntArray(vLits1), Vec_IntArray(vLits1) + Vec_IntSize(vLits1) );
             assert( RetValue1 == 1 );
             sat_solver_compress( pSat );
+        }
+
+        // printf("start bsg\n");
+        for (;;) {
+            // printf("%d\n", pCubeMin->nLits);
+            // Pdr_ManSolverAddClause(p, k + 1, pCubeMin);
+            if (succ) {
+                if (succ->iFrame != k + 1)
+                    break;
+                Pdr_Set_t *pBad;
+                if (Pdr_ManCheckCubeWithConstraint( p, k + 1, succ->pState, &pBad, p->pPars->nConfLimit, 0, 1, pCubeMin )) {
+                    c += 1;
+                    // printf("c%d\n", c);
+                    break;
+                } else {
+                    Pdr_Set_t * pCubeTry = ZPdr_SetIntersection( pCubeMin, pBad, keep );
+                    if ( Pdr_SetIsInit(pCubeTry, -1) )
+                        break;
+                    if (Pdr_ManCheckCube( p, k, pCubeTry, NULL, p->pPars->nConfLimit, 1, 1 )) {
+                        a += 1;
+                        // printf("a%d\n", a);
+                        Pdr_SetDeref(pBad);
+                        Pdr_SetDeref(pCubeMin);
+                        // printf("success\n");
+                        pCubeMin = pCubeTry;
+                    } else {
+                        b += 1;
+                        // printf("b%d\n", b);
+                        Pdr_QueuePush( p, Pdr_OblStart( k, 0, pBad, Pdr_OblRef(succ) ) );
+                        Pdr_SetDeref(pCubeTry);
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
         }
 
         // sort literals by their occurences
@@ -946,7 +984,7 @@ int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube )
 
         // check if the cube holds with relative induction
         pCubeMin = NULL;
-        RetValue = Pdr_ManGeneralize( p, pThis->iFrame-1, pThis->pState, &pPred, &pCubeMin );
+        RetValue = Pdr_ManGeneralize( p, pThis->iFrame-1, pThis->pState, &pPred, &pCubeMin, pThis->pNext );
         if ( RetValue == -1 ) // resource limit is reached
         {
             Pdr_OblDeref( pThis );
