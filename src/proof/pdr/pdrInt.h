@@ -264,6 +264,15 @@ extern void            Pdr_QueuePush( Pdr_Man_t * p, Pdr_Obl_t * pObl );
 extern void            Pdr_QueuePrint( Pdr_Man_t * p );
 extern void            Pdr_QueueStop( Pdr_Man_t * p );
 
+extern Pdr_Set_t * Pdr_ManReduceClause( Pdr_Man_t * p, int k, Pdr_Set_t * pCube );
+extern int ZPdr_ManSimpleMic( Pdr_Man_t * p, int k, Pdr_Set_t ** ppCube );
+
+extern void record_ctp(Pdr_Man_t *p, int k, Pdr_Set_t *cube);
+extern void clean_ctp();
+extern Pdr_Set_t *fg(Pdr_Man_t *p, int k, Pdr_Set_t *pCubeMin, int simple);
+
+extern size_t fg_down_succ, fg_down_fail;
+
 ABC_NAMESPACE_HEADER_END
 
 

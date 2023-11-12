@@ -21,6 +21,7 @@
 #include "pdrInt.h"
 #include "base/main/main.h"
 #include "misc/hash/hash.h"
+#include "signal.h"
 
 ABC_NAMESPACE_IMPL_START
 
@@ -100,6 +101,7 @@ Pdr_Set_t * Pdr_ManReduceClause( Pdr_Man_t * p, int k, Pdr_Set_t * pCube )
     int i, Entry, nCoreLits, * pCoreLits;
     // get relevant SAT literals
     nCoreLits = sat_solver_final(Pdr_ManSolver(p, k), &pCoreLits);
+    // printf("reduce ncore:%d\n", nCoreLits);
     // translate them into register literals and remove auxiliary
     vLits = Pdr_ManLitsToCube( p, k, pCoreLits, nCoreLits );
     // skip if there is no improvement
@@ -155,6 +157,7 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
     int Counter = 0;
     abctime clk = Abc_Clock();
     assert( p->iUseFrame > 0 );
+    clean_ctp();
     Vec_VecForEachLevelStartStop( p->vClauses, vArrayK, k, iStartFrame, kMax )
     {
         Vec_PtrSort( vArrayK, (int (*)(const void *, const void *))Pdr_SetCompare );
@@ -178,8 +181,10 @@ int Pdr_ManPushClauses( Pdr_Man_t * p )
             RetValue2 = Pdr_ManCheckCube( p, k, pCubeK, NULL, 0, 0, 1 );
             if ( RetValue2 == -1 )
                 return -1;
-            if ( !RetValue2 )
+            if ( !RetValue2 ) {
+                record_ctp(p, k, pCubeK);
                 continue;
+            }
 
             {
                 Pdr_Set_t * pCubeMin;
@@ -323,6 +328,13 @@ int ZPdr_ManSimpleMic( Pdr_Man_t * p, int k, Pdr_Set_t ** ppCube )
     // perform generalization
     if ( p->pPars->fSkipGeneral )
       return 0;
+
+    Pdr_Set_t *predict = fg(p, k, *ppCube, true);
+    if (predict != NULL)
+    {
+        *ppCube = predict;
+        return 0;
+    }
 
     // sort literals by their occurences
     pOrder = Pdr_ManSortByPriority( p, *ppCube );
@@ -707,42 +719,20 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
     if ( pCubeMin == NULL )
         pCubeMin = Pdr_SetDup( pCube );
 
-    // perform simplified generalization
-    if ( p->pPars->fSimpleGeneral )
-    {
-        assert( pCubeMin->nLits > 0 );
-        if ( pCubeMin->nLits > 1 )
-        {
-            RetValue = Pdr_ManGeneralize2( p, k, pCubeMin, ppCubeMin );
-            Pdr_SetDeref( pCubeMin );
-            assert( ppCubeMin != NULL );
-            pCubeMin = *ppCubeMin;
-        }
-        *ppCubeMin = pCubeMin;
-        if ( p->pPars->fVeryVerbose )
-        {
-            printf("Cube:\n");
-            for ( i = 0; i < pCubeMin->nLits; i++)
-                printf ("%d ", pCubeMin->Lits[i]);
-            printf("\n");
-        }
-        p->tGeneral += Abc_Clock() - clk;
-        return 1;
-    }
-    
     keep = p->pPars->fSkipDown ? NULL : Hash_IntAlloc( 1 );
 
     // perform generalization
     if ( !p->pPars->fSkipGeneral )
     {
-        // assume the unminimized cube
-        if ( p->pPars->fSimpleGeneral )
+        Pdr_Set_t *predict = fg(p, k, pCubeMin, p->pPars->fSkipDown);
+        if (predict != NULL)
         {
-            sat_solver *  pSat = Pdr_ManFetchSolver( p, k );
-            Vec_Int_t * vLits1 = Pdr_ManCubeToLits( p, k, pCubeMin, 1, 0 );
-            int RetValue1 = sat_solver_addclause( pSat, Vec_IntArray(vLits1), Vec_IntArray(vLits1) + Vec_IntSize(vLits1) );
-            assert( RetValue1 == 1 );
-            sat_solver_compress( pSat );
+            // printf("succ\n");
+            *ppCubeMin = predict;
+            p->tGeneral += Abc_Clock() - clk;
+            if (keep)
+                Hash_IntFree(keep);
+            return 1;
         }
 
         // sort literals by their occurences
@@ -830,50 +820,10 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
             // get the ordering by decreasing priority
             pOrder = Pdr_ManSortByPriority( p, pCubeMin );
             j--;
-        }
-
-        if ( p->pPars->fTwoRounds )
-        for ( j = 0; j < pCubeMin->nLits; j++ )
-        {
-            // use ordering
-    //        i = j;
-            i = pOrder[j];
-
-            // check init state
-            assert( pCubeMin->Lits[i] != -1 );
-            if ( Pdr_SetIsInit(pCubeMin, i) )
-                continue;
-            // try removing this literal
-            Lit = pCubeMin->Lits[i]; pCubeMin->Lits[i] = -1; 
-            RetValue = Pdr_ManCheckCube( p, k, pCubeMin, NULL, p->pPars->nConfLimit, 0, 1 );
-            if ( RetValue == -1 )
-            {
-                Pdr_SetDeref( pCubeMin );
-                return -1;
-            }
-            pCubeMin->Lits[i] = Lit;
-            if ( RetValue == 0 )
-                continue;
-
-            // success - update the cube
-            pCubeMin = Pdr_SetCreateFrom( pCubeTmp = pCubeMin, i );
-            Pdr_SetDeref( pCubeTmp );
-            assert( pCubeMin->nLits > 0 );
-
-            // get the ordering by decreasing priority
-            pOrder = Pdr_ManSortByPriority( p, pCubeMin );
-            j--;
-        }
+        } 
     }
 
     assert( ppCubeMin != NULL );
-    if ( p->pPars->fVeryVerbose )
-    {
-        printf("Cube:\n");
-        for ( i = 0; i < pCubeMin->nLits; i++)
-            printf ("%d ", pCubeMin->Lits[i]);
-        printf("\n");
-    }
     *ppCubeMin = pCubeMin;
     p->tGeneral += Abc_Clock() - clk;
     if ( keep ) Hash_IntFree( keep );
@@ -967,8 +917,10 @@ int Pdr_ManBlockCube( Pdr_Man_t * p, Pdr_Set_t * pCube )
                     Pdr_OblDeref( pThis );
                     return -1;
                 }
-                if ( !RetValue )
+                if ( !RetValue ) {
+                    record_ctp(p, k, pCubeMin);
                     break;
+                }
             }
             // add new clause
             if ( p->pPars->fVeryVerbose )
@@ -1379,6 +1331,15 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
     return -1;
 }
 
+static void statistic() {
+    printf("fg_down_succ: %ld, fg_down_fail: %ld\n", fg_down_succ, fg_down_fail);
+}
+
+static void handle_int(int int_num) {
+    statistic();
+    exit(0);
+}
+
 /**Function*************************************************************
 
   Synopsis    []
@@ -1412,9 +1373,11 @@ int Pdr_ManSolve( Aig_Man_t * pAig, Pdr_Par_t * pPars )
             pPars->fSkipGeneral ? "yes" : "no",
             pPars->fSolveAll ?    "yes" : "no" );
     }
+    signal(SIGINT, handle_int);
     ABC_FREE( pAig->pSeqModel );
     p = Pdr_ManStart( pAig, pPars, NULL );
     RetValue = Pdr_ManSolveInt( p );
+    statistic();
     if ( RetValue == 0 )
         assert( pAig->pSeqModel != NULL || p->vCexes != NULL );
     if ( p->vCexes )
