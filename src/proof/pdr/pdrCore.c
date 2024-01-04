@@ -21,6 +21,7 @@
 #include "pdrInt.h"
 #include "base/main/main.h"
 #include "misc/hash/hash.h"
+#include "signal.h"
 
 ABC_NAMESPACE_IMPL_START
 
@@ -1379,6 +1380,15 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
     return -1;
 }
 
+static void statistic() {
+    printf("statistic\n");
+}
+
+static void handle_int(int int_num) {
+    statistic();
+    exit(0);
+}
+
 /**Function*************************************************************
 
   Synopsis    []
@@ -1412,9 +1422,12 @@ int Pdr_ManSolve( Aig_Man_t * pAig, Pdr_Par_t * pPars )
             pPars->fSkipGeneral ? "yes" : "no",
             pPars->fSolveAll ?    "yes" : "no" );
     }
+    signal(SIGINT, handle_int);
     ABC_FREE( pAig->pSeqModel );
     p = Pdr_ManStart( pAig, pPars, NULL );
     RetValue = Pdr_ManSolveInt( p );
+    signal(SIGINT, SIG_DFL);
+    statistic();
     if ( RetValue == 0 )
         assert( pAig->pSeqModel != NULL || p->vCexes != NULL );
     if ( p->vCexes )
