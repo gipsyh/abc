@@ -226,6 +226,7 @@ extern void            Pdr_ManSolverAddClause( Pdr_Man_t * p, int k, Pdr_Set_t *
 extern void            Pdr_ManCollectValues( Pdr_Man_t * p, int k, Vec_Int_t * vObjIds, Vec_Int_t * vValues );
 extern int             Pdr_ManCheckCubeCs( Pdr_Man_t * p, int k, Pdr_Set_t * pCube );
 extern int             Pdr_ManCheckCube( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, int nConfLimit, int fTryConf, int fUseLit );
+extern int             Pdr_ManCheckCube_Double_Drop( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, int nConfLimit, int fTryConf, int fUseLit, int first, int second, int *fail);
 /*=== pdrTsim.c ==========================================================*/
 extern Pdr_Set_t *     Pdr_ManTernarySim( Pdr_Man_t * p, int k, Pdr_Set_t * pCube );
 /*=== pdrTsim2.c ==========================================================*/
@@ -248,6 +249,7 @@ extern Pdr_Set_t *     ZPdr_SetIntersection( Pdr_Set_t * p1, Pdr_Set_t * p2, Has
 extern int             Pdr_SetContains( Pdr_Set_t * pOld, Pdr_Set_t * pNew );
 extern int             Pdr_SetContainsSimple( Pdr_Set_t * pOld, Pdr_Set_t * pNew );
 extern int             Pdr_SetIsInit( Pdr_Set_t * p, int iRemove );
+extern int             Pdr_SetIsInit_Double_Drop( Pdr_Set_t * pCube, int iRemove, int i_1Remove );
 extern int             ZPdr_SetIsInit( Pdr_Set_t * p );
 extern void            Pdr_SetPrint( FILE * pFile, Pdr_Set_t * p, int nRegs, Vec_Int_t * vFlopCounts );
 extern void            ZPdr_SetPrint( Pdr_Set_t * p );

@@ -668,6 +668,11 @@ int Pdr_ManGeneralize2( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** pp
     return 0;
 }
 
+static void abc_assert(int a) {
+    if (a == 0)
+        abort();
+}
+
 /**Function*************************************************************
 
   Synopsis    [Returns 1 if the state could be blocked.]
@@ -748,6 +753,7 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
 
         // sort literals by their occurences
         pOrder = Pdr_ManSortByPriority( p, pCubeMin );
+        int next_single = 0;
         // try removing literals
         for ( j = 0; j < pCubeMin->nLits; j++ )
         {
@@ -765,72 +771,114 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
             // check init state
             if ( Pdr_SetIsInit(pCubeMin, i) )
                 continue;
+            if ( next_single == 0 && j + 1 < pCubeMin->nLits && !Pdr_SetIsInit_Double_Drop(pCubeMin, i, pOrder[j + 1]) ) {
+            // if ( 0 ) {
+                int i_1 = pOrder[j + 1];
+                Lit = pCubeMin->Lits[i]; pCubeMin->Lits[i] = -1; 
+                int Lit_1 = pCubeMin->Lits[i_1]; pCubeMin->Lits[i_1] = -1;
+                int fail = 0;
+                RetValue = Pdr_ManCheckCube_Double_Drop( p, k, pCubeMin, NULL, p->pPars->nConfLimit, 1, !p->pPars->fSimpleGeneral, Lit, Lit_1, &fail);
+                abc_assert(RetValue != -1);
+                pCubeMin->Lits[i] = Lit;
+                pCubeMin->Lits[i_1] = Lit_1;
+                if ( RetValue == 0 ) {
+                    if (fail == 1) {
 
-            // try removing this literal
-            Lit = pCubeMin->Lits[i]; pCubeMin->Lits[i] = -1; 
-            if ( p->pPars->fSkipDown )
-                RetValue = Pdr_ManCheckCube( p, k, pCubeMin, NULL, p->pPars->nConfLimit, 1, !p->pPars->fSimpleGeneral );
-            else
-                RetValue = Pdr_ManCheckCube( p, k, pCubeMin, &pPred, p->pPars->nConfLimit, 1, !p->pPars->fSimpleGeneral );
-            if ( RetValue == -1 )
-            {
-                Pdr_SetDeref( pCubeMin );
-                return -1;
-            }
-            pCubeMin->Lits[i] = Lit;
-            if ( RetValue == 0 )
-            {
-                if ( p->pPars->fSkipDown )
+                    } else if (fail == 2) {
+                        pOrder[j + 1] = i;
+                        pOrder[j] = i_1;
+                    } else if (fail == 3) {
+                        next_single++;
+                        --j;
+                    } else
+                        abort();
                     continue;
-                pCubeCpy = Pdr_SetCreateFrom( pCubeMin, i );
-                RetValue = ZPdr_ManDown( p, k, &pCubeCpy, pPred, keep, pCubeMin, &added );
-                if ( p->pPars->fCtgs )
-                    //CTG handling code messes up with the internal order array
-                    pOrder = Pdr_ManSortByPriority( p, pCubeMin );
+                }
+                added = 0;
+
+                // success - update the cube
+                if (i > i_1) {
+                    int tmp = i;
+                    i = i_1;
+                    i_1 = tmp;
+                }
+                pCubeMin = Pdr_SetCreateFrom( pCubeTmp = pCubeMin, i );
+                Pdr_SetDeref( pCubeTmp );
+                pCubeMin = Pdr_SetCreateFrom( pCubeTmp = pCubeMin, i_1 - 1 );
+                Pdr_SetDeref( pCubeTmp );
+                assert( pCubeMin->nLits > 0 );
+                // get the ordering by decreasing priority
+                pOrder = Pdr_ManSortByPriority( p, pCubeMin );
+                j--; 
+            } else {
+                next_single--;
+                // try removing this literal
+                Lit = pCubeMin->Lits[i]; pCubeMin->Lits[i] = -1; 
+                if ( p->pPars->fSkipDown )
+                    RetValue = Pdr_ManCheckCube( p, k, pCubeMin, NULL, p->pPars->nConfLimit, 1, !p->pPars->fSimpleGeneral );
+                else
+                    RetValue = Pdr_ManCheckCube( p, k, pCubeMin, &pPred, p->pPars->nConfLimit, 1, !p->pPars->fSimpleGeneral );
                 if ( RetValue == -1 )
                 {
                     Pdr_SetDeref( pCubeMin );
-                    Pdr_SetDeref( pCubeCpy );
-                    Pdr_SetDeref( pPred );
                     return -1;
                 }
+                pCubeMin->Lits[i] = Lit;
                 if ( RetValue == 0 )
                 {
-                    if ( keep ) 
-                        Hash_IntWriteEntry( keep, pCubeMin->Lits[i], 0 );
-                    if ( pCubeCpy )
+                    if ( p->pPars->fSkipDown )
+                        continue;
+                    abort();
+                    pCubeCpy = Pdr_SetCreateFrom( pCubeMin, i );
+                    RetValue = ZPdr_ManDown( p, k, &pCubeCpy, pPred, keep, pCubeMin, &added );
+                    if ( p->pPars->fCtgs )
+                        //CTG handling code messes up with the internal order array
+                        pOrder = Pdr_ManSortByPriority( p, pCubeMin );
+                    if ( RetValue == -1 )
+                    {
+                        Pdr_SetDeref( pCubeMin );
                         Pdr_SetDeref( pCubeCpy );
+                        Pdr_SetDeref( pPred );
+                        return -1;
+                    }
+                    if ( RetValue == 0 )
+                    {
+                        if ( keep ) 
+                            Hash_IntWriteEntry( keep, pCubeMin->Lits[i], 0 );
+                        if ( pCubeCpy )
+                            Pdr_SetDeref( pCubeCpy );
+                        continue;
+                    }
+                    //Inductive subclause
+                    added = 0;
+                    Pdr_SetDeref( pCubeMin );
+                    pCubeMin = pCubeCpy;
+                    assert( pCubeMin->nLits > 0 );
+                    pOrder = Pdr_ManSortByPriority( p, pCubeMin );
+                    j = -1;
                     continue;
                 }
-                //Inductive subclause
                 added = 0;
-                Pdr_SetDeref( pCubeMin );
-                pCubeMin = pCubeCpy;
+
+                // success - update the cube
+                pCubeMin = Pdr_SetCreateFrom( pCubeTmp = pCubeMin, i );
+                Pdr_SetDeref( pCubeTmp );
                 assert( pCubeMin->nLits > 0 );
+
+                // assume the minimized cube
+                if ( p->pPars->fSimpleGeneral )
+                {
+                    sat_solver *  pSat = Pdr_ManFetchSolver( p, k );
+                    Vec_Int_t * vLits1 = Pdr_ManCubeToLits( p, k, pCubeMin, 1, 0 );
+                    int RetValue1 = sat_solver_addclause( pSat, Vec_IntArray(vLits1), Vec_IntArray(vLits1) + Vec_IntSize(vLits1) );
+                    assert( RetValue1 == 1 );
+                    sat_solver_compress( pSat );
+                }
+
+                // get the ordering by decreasing priority
                 pOrder = Pdr_ManSortByPriority( p, pCubeMin );
-                j = -1;
-                continue;
+                j--;
             }
-            added = 0;
-
-            // success - update the cube
-            pCubeMin = Pdr_SetCreateFrom( pCubeTmp = pCubeMin, i );
-            Pdr_SetDeref( pCubeTmp );
-            assert( pCubeMin->nLits > 0 );
-
-            // assume the minimized cube
-            if ( p->pPars->fSimpleGeneral )
-            {
-                sat_solver *  pSat = Pdr_ManFetchSolver( p, k );
-                Vec_Int_t * vLits1 = Pdr_ManCubeToLits( p, k, pCubeMin, 1, 0 );
-                int RetValue1 = sat_solver_addclause( pSat, Vec_IntArray(vLits1), Vec_IntArray(vLits1) + Vec_IntSize(vLits1) );
-                assert( RetValue1 == 1 );
-                sat_solver_compress( pSat );
-            }
-
-            // get the ordering by decreasing priority
-            pOrder = Pdr_ManSortByPriority( p, pCubeMin );
-            j--;
         }
 
         if ( p->pPars->fTwoRounds )
@@ -1380,8 +1428,10 @@ int Pdr_ManSolveInt( Pdr_Man_t * p )
     return -1;
 }
 
+extern int test_x, test_y, test_z;
+
 static void statistic() {
-    printf("statistic\n");
+    printf("statistic: testx: %d, testy: %d, testz: %d\n", test_x, test_y, test_z);
 }
 
 static void handle_int(int int_num) {

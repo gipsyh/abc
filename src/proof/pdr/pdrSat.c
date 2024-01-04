@@ -385,6 +385,139 @@ int Pdr_ManCheckCube( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPr
     return RetValue;
 }
 
+int test_x = 0;
+int test_y = 0;
+int test_z = 0;
+
+int Pdr_ManCheckCube_Double_Drop( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppPred, int nConfLimit, int fTryConf, int fUseLit, int first, int second, int *fail)
+{ 
+    //int fUseLit = 0;
+    int fLitUsed = 0;
+    sat_solver * pSat;
+    Vec_Int_t * vLits;
+    int Lit, RetValue;
+    abctime clk, Limit;
+    p->nCalls++;
+    pSat = Pdr_ManFetchSolver( p, k );
+
+    Vec_IntClear( p->vLits );
+    int double_drop[2] = {first, second};
+    for ( int i = 0; i < 2; i++ )
+    {
+        Aig_Obj_t * pObj = Saig_ManLi( p->pAig, Abc_Lit2Var(double_drop[i]) );
+        int iVar = Pdr_ObjSatVar( p, k, 2 - Abc_LitIsCompl(double_drop[i]), pObj ); assert( iVar >= 0 );
+        int iVarMax = Abc_MaxInt( iVarMax, iVar );
+        Vec_IntPush( p->vLits, Abc_Var2Lit( iVar, Abc_LitIsCompl(double_drop[i]) ) );
+    }
+    int first_next = p->vLits->pArray[0];
+    int second_next = p->vLits->pArray[1];
+    // pSat->polarity[Abc_Lit2Var(first_next)] = !Abc_LitIsCompl(first_next);
+    // pSat->polarity[Abc_Lit2Var(second_next)] = !Abc_LitIsCompl(second_next);
+
+    if ( fUseLit )
+    {
+        fLitUsed = 1;
+        Vec_IntAddToEntry( p->vActVars, k, 1 );
+        // add the cube in terms of current state variables
+        vLits = Pdr_ManCubeToLits( p, k, pCube, 1, 0 );
+        // add activation literal
+        Lit = Abc_Var2Lit( Pdr_ManFreeVar(p, k), 0 );
+        // add activation literal
+        Vec_IntPush( vLits, Lit );
+        RetValue = sat_solver_addclause( pSat, Vec_IntArray(vLits), Vec_IntArray(vLits) + Vec_IntSize(vLits) );
+        assert( RetValue == 1 );
+        sat_solver_compress( pSat );
+        // create assumptions
+        vLits = Pdr_ManCubeToLits( p, k, pCube, 0, 1 );
+        // add activation literal
+        Vec_IntPush( vLits, Abc_LitNot(Lit) );
+    }
+    else
+        vLits = Pdr_ManCubeToLits( p, k, pCube, 0, 1 );
+
+    // solve 
+    clk = Abc_Clock();
+    Limit = sat_solver_set_runtime_limit( pSat, Pdr_ManTimeLimit(p) );
+    RetValue = sat_solver_solve( pSat, Vec_IntArray(vLits), Vec_IntArray(vLits) + Vec_IntSize(vLits), fTryConf ? p->pPars->nConfGenLimit : nConfLimit, 0, 0, 0 );
+    sat_solver_set_runtime_limit( pSat, Limit );
+
+    // pSat->polarity[Abc_Lit2Var(first_next)] = 0;
+    // pSat->polarity[Abc_Lit2Var(second_next)] = 0;
+    if (RetValue == l_True) {
+        int first_next_model = sat_solver_var_literal(pSat, Abc_Lit2Var(first_next));
+        int second_next_model = sat_solver_var_literal(pSat, Abc_Lit2Var(second_next));
+        if (first_next_model != first_next && second_next_model == second_next) {
+            test_y +=1;
+            // printf("test_y %d\n", test_y);
+            *fail = 1;
+        }
+        else if (first_next_model == first_next && second_next_model != second_next) {
+            test_y +=1;
+            // printf("test_y %d\n", test_y);
+            *fail = 2;
+        }
+        else if (first_next_model != first_next && second_next_model != second_next) {
+            test_z +=1;
+            // printf("test_z %d\n", test_z);
+            *fail = 3;
+        }
+        else
+            abort();
+    } else {
+        test_x +=1;
+        // printf("test_x %d\n", test_x);
+    }
+
+    if ( RetValue == l_Undef )
+    {
+        abort();
+        if ( fTryConf && p->pPars->nConfGenLimit )
+            RetValue = l_True;
+        else
+            return -1;
+    }
+    clk = Abc_Clock() - clk;
+    p->tSat += clk;
+    assert( RetValue != l_Undef );
+    if ( RetValue == l_False )
+    {
+        p->tSatUnsat += clk;
+        p->nCallsU++;
+        if ( ppPred )
+            *ppPred = NULL;
+        RetValue = 1;
+    }
+    else // if ( RetValue == l_True )
+    {
+        p->tSatSat += clk;
+        p->nCallsS++;
+        if ( ppPred )
+        {
+            abctime clk = Abc_Clock();
+            if ( p->pPars->fNewXSim )
+                *ppPred = Txs3_ManTernarySim( p->pTxs3, k, pCube );
+            else
+                *ppPred = Pdr_ManTernarySim( p, k, pCube );
+            p->tTsim += Abc_Clock() - clk;
+            p->nXsimLits += (*ppPred)->nLits;
+            p->nXsimRuns++;
+        }
+        RetValue = 0;
+    }
+
+/* // for some reason, it does not work...
+    if ( fLitUsed )
+    {
+        int RetValue;
+        Lit = Abc_LitNot(Lit);
+        RetValue = sat_solver_addclause( pSat, &Lit, &Lit + 1 );
+        assert( RetValue == 1 );
+        sat_solver_compress( pSat );
+    }
+*/
+    return RetValue;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

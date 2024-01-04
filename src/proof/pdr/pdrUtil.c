@@ -471,6 +471,20 @@ int Pdr_SetIsInit( Pdr_Set_t * pCube, int iRemove )
     return 1;
 }
 
+int Pdr_SetIsInit_Double_Drop( Pdr_Set_t * pCube, int iRemove, int i_1Remove )
+{
+    int i;
+    for ( i = 0; i < pCube->nLits; i++ )
+    {
+        assert( pCube->Lits[i] != -1 );
+        if ( i == iRemove || i == i_1Remove )
+            continue;
+        if ( Abc_LitIsCompl( pCube->Lits[i] ) == 0 )
+            return 0;
+    }
+    return 1;
+}
+
 /**Function*************************************************************
 
   Synopsis    []
