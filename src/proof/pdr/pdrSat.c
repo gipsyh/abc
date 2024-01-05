@@ -411,8 +411,10 @@ int Pdr_ManCheckCube_Double_Drop( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_S
     }
     int first_next = p->vLits->pArray[0];
     int second_next = p->vLits->pArray[1];
-    // pSat->polarity[Abc_Lit2Var(first_next)] = !Abc_LitIsCompl(first_next);
-    // pSat->polarity[Abc_Lit2Var(second_next)] = !Abc_LitIsCompl(second_next);
+    char old_first = pSat->polarity[Abc_Lit2Var(first_next)];
+    char old_second = pSat->polarity[Abc_Lit2Var(first_next)];
+    pSat->polarity[Abc_Lit2Var(first_next)] = Abc_LitIsCompl(first_next);
+    pSat->polarity[Abc_Lit2Var(second_next)] = Abc_LitIsCompl(second_next);
 
     if ( fUseLit )
     {
@@ -441,8 +443,8 @@ int Pdr_ManCheckCube_Double_Drop( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_S
     RetValue = sat_solver_solve( pSat, Vec_IntArray(vLits), Vec_IntArray(vLits) + Vec_IntSize(vLits), fTryConf ? p->pPars->nConfGenLimit : nConfLimit, 0, 0, 0 );
     sat_solver_set_runtime_limit( pSat, Limit );
 
-    // pSat->polarity[Abc_Lit2Var(first_next)] = 0;
-    // pSat->polarity[Abc_Lit2Var(second_next)] = 0;
+    pSat->polarity[Abc_Lit2Var(first_next)] = old_first;
+    pSat->polarity[Abc_Lit2Var(second_next)] = old_second;
     if (RetValue == l_True) {
         int first_next_model = sat_solver_var_literal(pSat, Abc_Lit2Var(first_next));
         int second_next_model = sat_solver_var_literal(pSat, Abc_Lit2Var(second_next));
