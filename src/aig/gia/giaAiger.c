@@ -245,13 +245,13 @@ Gia_Man_t * Gia_AigerReadFromMemory( char * pContents, int nFileSize, int fGiaSi
         return NULL;
     }
 
-    if ( nConstr )
-    {
-        if ( nConstr == 1 )
-            fprintf( stdout, "Warning: The last output is interpreted as a constraint.\n" );
-        else
-            fprintf( stdout, "Warning: The last %d outputs are interpreted as constraints.\n", nConstr );
-    }
+    // if ( nConstr )
+    // {
+    //     if ( nConstr == 1 )
+    //         fprintf( stdout, "Warning: The last output is interpreted as a constraint.\n" );
+    //     else
+    //         fprintf( stdout, "Warning: The last %d outputs are interpreted as constraints.\n", nConstr );
+    // }
 
     // allocate the empty AIG
     pNew = Gia_ManStart( nTotal + nLatches + nOutputs + 1 );

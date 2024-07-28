@@ -180,13 +180,13 @@ Aig_Man_t * Ioa_ReadAigerFromMemory( char * pContents, int nFileSize, int fCheck
         return NULL;
     }
 
-    if ( nConstr )
-    {
-        if ( nConstr == 1 )
-            fprintf( stdout, "Warning: The last output is interpreted as a constraint.\n" );
-        else
-            fprintf( stdout, "Warning: The last %d outputs are interpreted as constraints.\n", nConstr );
-    }
+    // if ( nConstr )
+    // {
+    //     if ( nConstr == 1 )
+    //         fprintf( stdout, "Warning: The last output is interpreted as a constraint.\n" );
+    //     else
+    //         fprintf( stdout, "Warning: The last %d outputs are interpreted as constraints.\n", nConstr );
+    // }
 
     // allocate the empty AIG
     pNew = Aig_ManStart( nAnds );

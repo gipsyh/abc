@@ -333,13 +333,13 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
         return NULL;
     }
 
-    if ( nConstr )
-    {
-        if ( nConstr == 1 )
-            fprintf( stdout, "Warning: The last output is interpreted as a constraint.\n" );
-        else
-            fprintf( stdout, "Warning: The last %d outputs are interpreted as constraints.\n", nConstr );
-    }
+    // if ( nConstr )
+    // {
+    //     if ( nConstr == 1 )
+    //         fprintf( stdout, "Warning: The last output is interpreted as a constraint.\n" );
+    //     else
+    //         fprintf( stdout, "Warning: The last %d outputs are interpreted as constraints.\n", nConstr );
+    // }
 
     // allocate the empty AIG
     pNtkNew = Abc_NtkAlloc( ABC_NTK_STRASH, ABC_FUNC_AIG, 1 );
