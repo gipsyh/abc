@@ -358,8 +358,125 @@ int ZPdr_ManSimpleMic( Pdr_Man_t * p, int k, Pdr_Set_t ** ppCube )
     return 0;
 }
 
+int ZPdr_Man_Exctg_Block(Pdr_Man_t *p, int k, Pdr_Set_t *pCube, int *limit)
+{
+    if (*limit == 0)
+        return 0;
+    *limit -= 1;
+    if (k == 0)
+        return 0;
+    if (Pdr_SetIsInit(pCube, -1))
+        return 0;
+    while (1)
+    {
+        Pdr_Set_t *pPred;
+        Pdr_Set_t **ppPred;
+        if (*limit == 0)
+            ppPred = NULL;
+        else
+            ppPred = &pPred;
+        if (Pdr_ManCheckCube(p, k - 1, pCube, ppPred, p->pPars->nConfLimit, 0, 1))
+        {
+            Pdr_Set_t *pCubeMin = Pdr_ManReduceClause(p, k - 1, pCube);
+            if (pCubeMin == NULL)
+                pCubeMin = Pdr_SetDup(pCube);
+            ZPdr_ManSimpleMic(p, k - 1, &pCubeMin);
+            int l;
+            for (l = k; l < Vec_PtrSize(p->vSolvers)-1; l++)
+                if (!Pdr_ManCheckCube(p, l, pCubeMin, NULL, 0, 0, 1))
+                    break;
+            for (int i = 0; i < pCubeMin->nLits; i++)
+            {
+                assert(pCubeMin->Lits[i] >= 0);
+                assert((pCubeMin->Lits[i] / 2) < Aig_ManRegNum(p->pAig));
+                if ((Vec_IntEntry(p->vPrio, pCubeMin->Lits[i] / 2) >> p->nPrioShift) == 0)
+                    p->nAbsFlops++;
+                Vec_IntAddToEntry(p->vPrio, pCubeMin->Lits[i] / 2, 1 << p->nPrioShift);
+            }
+            Vec_VecPush(p->vClauses, l, pCubeMin);
+            for (int i = 1; i <= l; i++)
+                Pdr_ManSolverAddClause(p, i, pCubeMin);
+            return 1;
+        }
+        else
+        {
+            if (*limit == 0)
+                return 0;
+            if (ZPdr_Man_Exctg_Block(p, k - 1, pPred, limit) == 0)
+            {
+                Pdr_SetDeref(pPred);
+                return 0;
+            }
+            Pdr_SetDeref(pPred);
+        }
+    }
+}
 
- 
+int ZPdr_Man_Exctg_Down(Pdr_Man_t *p, int k, Pdr_Set_t **ppCube, Pdr_Set_t *pPred, Hash_Int_t *keep, Pdr_Set_t *pIndCube, int *added)
+{
+    int RetValue = 0, i, ctgAttempts, l, micResult;
+    int kMax = Vec_PtrSize(p->vSolvers) - 1;
+    Pdr_Set_t *pCubeTmp, *pCubeMin, *pCtg;
+    while (RetValue == 0)
+    {
+        ctgAttempts = 0;
+        while (p->pPars->fCtgs && RetValue == 0 && k > 1 && ctgAttempts < 3)
+        {
+            pCtg = Pdr_SetDup(pPred);
+            // Check CTG for inductiveness
+            if (Pdr_SetIsInit(pCtg, -1))
+            {
+                Pdr_SetDeref(pCtg);
+                break;
+            }
+            if (*added == 0)
+            {
+                for (i = 1; i <= k; i++)
+                    Pdr_ManSolverAddClause(p, i, pIndCube);
+                *added = 1;
+            }
+            ctgAttempts++;
+            int limit = 5;
+            if (ZPdr_Man_Exctg_Block(p, k, pCtg, &limit) == 0)
+            {
+                Pdr_SetDeref(pCtg);
+                break;
+            }
+
+            RetValue = Pdr_ManCheckCube(p, k, *ppCube, &pPred, p->pPars->nConfLimit, 0, 1);
+            assert(RetValue >= 0);
+            Pdr_SetDeref(pCtg);
+            if (RetValue == 1)
+            {
+                return 1;
+            }
+        }
+
+        *ppCube = ZPdr_SetIntersection(pCubeTmp = *ppCube, pPred, keep);
+        Pdr_SetDeref(pCubeTmp);
+        Pdr_SetDeref(pPred);
+        if (*ppCube == NULL)
+            return 0;
+        if (Pdr_SetIsInit(*ppCube, -1))
+        {
+            return 0;
+        }
+        RetValue = Pdr_ManCheckCube(p, k, *ppCube, &pPred, p->pPars->nConfLimit, 0, 1);
+        if (RetValue == -1)
+            return -1;
+        if (RetValue == 1)
+        {
+            break;
+        }
+        if (RetValue == 0 && (*ppCube)->nLits == 1)
+        {
+            Pdr_SetDeref(pPred); // fixed memory leak
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /**Function*************************************************************
 
   Synopsis    []
@@ -782,7 +899,7 @@ int Pdr_ManGeneralize( Pdr_Man_t * p, int k, Pdr_Set_t * pCube, Pdr_Set_t ** ppP
                 if ( p->pPars->fSkipDown )
                     continue;
                 pCubeCpy = Pdr_SetCreateFrom( pCubeMin, i );
-                RetValue = ZPdr_ManDown( p, k, &pCubeCpy, pPred, keep, pCubeMin, &added );
+                RetValue = ZPdr_Man_Exctg_Down( p, k, &pCubeCpy, pPred, keep, pCubeMin, &added );
                 if ( p->pPars->fCtgs )
                     //CTG handling code messes up with the internal order array
                     pOrder = Pdr_ManSortByPriority( p, pCubeMin );
